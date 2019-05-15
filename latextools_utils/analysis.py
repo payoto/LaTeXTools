@@ -325,6 +325,26 @@ def analyze_document(tex_root):
     return result
 
 
+def _input_paths(base_path):
+    """ Defines the list of paths to search for inputs"""
+    input_paths = [
+        "chapters\\1_background\\",
+        "chapters\\2_2DRSVS\\",
+        "chapters\\3_2DRSVSprop\\",
+        "chapters\\4_2Dopt\\",
+        "chapters\\5_3DRSVS\\",
+        "chapters\\6_3Dopt\\",
+        "chapters\\7_conclusion\\",
+    ]
+    base_paths = list([base_path])
+    for input_path in input_paths:
+        new_path = os.path.join(base_path, input_path)
+        if os.path.exists(new_path):
+            base_paths.append(new_path)
+
+    return base_paths
+
+
 def _analyze_tex_file(tex_root, file_name=None, process_file_stack=[],
                       ana=None, import_path=None):
     # init ana and the file name
@@ -395,9 +415,29 @@ def _analyze_tex_file(tex_root, file_name=None, process_file_stack=[],
         # read child files if it is an input command
         if g("command") in _input_commands and g("args") is not None:
             process_file_stack.append(file_name)
-            open_file = os.path.join(base_path, g("args"))
-            _analyze_tex_file(tex_root, open_file, process_file_stack, ana)
+            exists_file = False
+            for input_path in _input_paths(base_path):
+                open_file = os.path.join(input_path, g("args"))
+                if not os.path.splitext(open_file)[1]:
+                    exists_file = os.path.exists(open_file + ".tex")
+                else:
+                    exists_file = os.path.exists(open_file)
+                print(
+                    "Testing (exists: {0}): {1}".format(exists_file, open_file))
+                if exists_file:
+                    next_input_path = input_path
+                    break
+                else:
+                    print("Does not exist: {0}".format(open_file))
+
+            if exists_file:
+                _analyze_tex_file(tex_root, open_file, process_file_stack, ana,
+                    import_path=next_input_path)
+            else:
+                print('FileNotFoundError: No such file : {0} \n on paths: {1}'
+                      .format(g("args"), _input_paths(base_path)))
             process_file_stack.pop()
+
         elif (g("command") in _import_commands and g("args") is not None and
                 g("args2") is not None):
             if g("command").startswith("sub"):
